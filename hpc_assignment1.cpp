@@ -132,8 +132,8 @@ int main(int argc, char const *argv[]){
 	output_file.open(outFileName); time_file.open("timings.txt");
 
   cout << "dcd file: " << file_name << std::endl;
-
-  if (!file_name.empty() && file_name[file_name.length()-1] != 'd') { file_name.erase(file_name.length()-1); }
+  file_name = "example_pn3_10RU_751frames.dcd";
+  cout << "dcd file: " << file_name << std::endl;
   
 	/*USE DCDPLUGIN TO READ DCD FILE*/
 	int natoms = 0;
