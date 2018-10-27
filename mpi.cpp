@@ -13,7 +13,7 @@
 #include <chrono>
 #include <functional>
 #include "includes/dcdplugin.c"
-#include <omp.h>
+#include <mpi.h>
 using namespace std;
 
 class Pair{
@@ -75,6 +75,15 @@ vector<int> unroll(string indices){
 }
 
 int main(int argc, char const *argv[]){
+///////////////// HAVE MPI JUST PARALLELISE THE ENTIRE SCRIPT, I.E. EMBARRASING //////////////////
+	int steps_per_process = -1;		// each process is given a distinct number of steps to compute
+	MPI_Init(NULL, NULL);	// Initialise (try passing argc and argv)
+
+	int world_rank;		// # of processor	e.g. 1 of 4
+	int world_size;		// # of precessors	e.g. 4
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
 ///////////////// READING FROM FILE //////////////////
 	const auto i_flag = std::string{"-i"};
 	const auto o_flag = std::string{"-o"};
@@ -160,25 +169,17 @@ int main(int argc, char const *argv[]){
 	clock_t begin = clock();
 	auto start = chrono::steady_clock::now();
 
-	int global_step = -1;
+	int step = -1;
 	int num_steps = dcd->nsets;
-	std::priority_queue<Pair, std::vector<Pair>, distCompare> k_dist_timesteps[num_steps];	// array of priority queues to store each time step
-	
-	#pragma omp parallel for
-	//for (int t = 0; t < num_steps / 20; t++) {
+	int rc; 
+
 	for (int t = 0; t < num_steps; t++) {
-		std::cout << t << "HERE NOW \n" << endl;
 		// Inside so that each process has its own instance, i.e. prevents data race
 		molfile_timestep_t timestep;
 		timestep.coords = (float *)malloc(3*sizeof(float)*natoms);
 
-		int local_step;
-		#pragma omp critical
-		{
-			global_step++;
-			local_step = global_step;
-			int rc = read_next_timestep(raw_data, natoms, &timestep);
-		}
+		step++;
+		rc = read_next_timestep(raw_data, natoms, &timestep);
 
 		std::priority_queue<Pair, std::vector<Pair>, distCompare> k_dist;
 		Pair fake(0,0,1000);	// assume largest distance
@@ -210,23 +211,21 @@ int main(int argc, char const *argv[]){
 				}
 			}
 		}
+			// ...This should not be here... it sohuld be outside the loop
+			MPI_Barrier(MPI_COMM_WORLD);
 			// free up space, since each process creates its own instance
 			// and hex cluster complains
 			free(timestep.coords);
-			k_dist_timesteps[local_step] = k_dist;
-	}
 
-////////// OUTPUTTING EVERYTHING TO FILE //////////
-	/// time steps printed in descending order, bc priority queue
-	//for (int i = 0; i < num_steps/20; i++) {
-	for (int i = 0; i < num_steps; i++) {
-		for (int j = 0; j < k; j++) {
-			Pair top = k_dist_timesteps[i].top();
-			k_dist_timesteps[i].pop();
-			output_file << i << ", ";
-			output_file << top.printPair();
-			output_file << "\n";
-		}
+	////////// OUTPUTTING EVERYTHING TO FILE //////////
+			/// time steps printed in descending order, bc priority queue
+			for (int next_k = 0; next_k < k; next_k++) {
+				Pair top = k_dist.top();
+				k_dist.pop();
+				output_file << step << ", ";
+				output_file << top.printPair();
+				output_file << "\n";
+			}
 	}
 
 	clock_t end = clock();
