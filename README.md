@@ -1,5 +1,12 @@
 Used gcc 7 and newest version of mpicc
 
+
+THIS REPO CONTAINS THE FOLLOWING:
+---------------------------------
+
+.....
+
+
 COMPILING:
 ----------
 
