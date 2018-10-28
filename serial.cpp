@@ -167,7 +167,6 @@ int main(int argc, char const *argv[]){
 	#pragma omp parallel for
 	//for (int t = 0; t < num_steps / 20; t++) {
 	for (int t = 0; t < num_steps; t++) {
-		std::cout << t << "HERE NOW \n" << endl;
 		// Inside so that each process has its own instance, i.e. prevents data race
 		molfile_timestep_t timestep;
 		timestep.coords = (float *)malloc(3*sizeof(float)*natoms);
